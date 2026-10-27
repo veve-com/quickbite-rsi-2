@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickBite - Pesanan</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>QuickBite</h1>
+<nav><a href="index.html">Checkout</a><a href="pesanan.html" class="aktif">Pesanan</a></nav>
+<div id="hasil"></div>
+
+<h3>Daftar pesanan</h3>
+<div id="pesanan"></div>
+
+<script src="app.js"></script>
+<script>
+const STATUS = ['MENUNGGU_BAYAR','DIPROSES','DIKIRIM','SELESAI','BATAL'];
+
+async function muatPesanan() {
+  const r = await api('GET', '/api/pesanan');
+  if (!r.ok) return galat(r);
+  const el = document.getElementById('pesanan');
+  if (!r.data.length) { el.innerHTML = '<small>Belum ada pesanan. Buat dulu lewat halaman Checkout.</small>'; return; }
+  el.innerHTML = r.data.map(p =>
+    '<div class="kartu"><b>' + esc(p.idPesanan.substring(0, 8)) + '</b> · ' + esc(p.status) +
+    (p.terverifikasi ? ' · terverifikasi' : '') + '<br><small>' + esc(p.namaPelanggan) +
+    ' · ' + p.jumlahItem + ' item · ' + rp(p.totalBiaya) + '</small>' +
+    '<div class="aksi"><select id="st-' + p.idPesanan + '">' +
+    STATUS.map(s => '<option' + (s === p.status ? ' selected' : '') + '>' + s + '</option>').join('') +
+    '</select><button class="abu" onclick="ubahStatus(\'' + p.idPesanan + '\')">Ubah status</button>' +
+    '<button onclick="selesaikanTransaksi(\'' + p.idPesanan + '\')">Selesaikan</button></div></div>').join('');
+}
+
+async function ubahStatus(id) {
+  const status = document.getElementById('st-' + id).value;
+  const r = await api('PATCH', '/api/pesanan/' + id + '/status', { status });
+  if (!r.ok) return galat(r);
+  tampilkanHalamanSukses('Status berubah menjadi ' + esc(r.data.status));
+  muatPesanan();
+}
+
+async function selesaikanTransaksi(id) {
+  const r = await api('POST', '/api/checkout/' + id + '/selesai');
+  if (!r.ok) return galat(r);
+  tampilkanHalamanSukses('Transaksi diselesaikan.');
+  muatPesanan();
+}
+
+muatPesanan();
+</script>
+</body>
+</html>

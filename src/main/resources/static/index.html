@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QuickBite - Checkout</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>QuickBite</h1>
+<nav><a href="index.html" class="aktif">Checkout</a><a href="pesanan.html">Pesanan</a></nav>
+<div id="hasil"></div>
+
+<h3>Pelanggan</h3>
+<label>ID pelanggan <input id="pelanggan" value="P-01"></label>
+<div class="bar"><button class="abu" onclick="lihatPelanggan()">Lihat info</button></div>
+<label>Alamat <input id="alamat" placeholder="Klik Lihat info dulu"></label>
+<div class="bar"><button class="abu" onclick="ubahAlamat()">Ubah alamat</button></div>
+
+<h3>Menu</h3>
+<div id="menu"></div>
+
+<label>Token kartu <input id="token" value="tok_123"></label>
+<small>Isi <code>invalid_card</code> untuk simulasi pembayaran gagal.</small>
+<div class="bar">
+  <button class="abu" onclick="hitungTotal()">Hitung total</button>
+  <button onclick="klikTombolCheckout()">Checkout</button>
+</div>
+
+<script src="app.js"></script>
+<script>
+const idPelanggan = () => document.getElementById('pelanggan').value.trim();
+
+async function lihatPelanggan() {
+  const r = await api('GET', '/api/pelanggan/' + encodeURIComponent(idPelanggan()));
+  if (!r.ok) return galat(r);
+  document.getElementById('alamat').value = r.data.alamat;
+  tampilkanHalamanSukses(esc(r.data.info) + '<br>Telepon: ' + esc(r.data.nomorTelepon) +
+    '<br>Alamat: ' + esc(r.data.alamat));
+}
+
+async function ubahAlamat() {
+  const alamat = document.getElementById('alamat').value.trim();
+  const r = await api('PUT', '/api/pelanggan/' + encodeURIComponent(idPelanggan()) + '/alamat', { alamat });
+  if (!r.ok) return galat(r);
+  tampilkanHalamanSukses('Alamat diubah menjadi: ' + esc(r.data.alamat));
+}
+
+async function muatMenu() {
+  const r = await api('GET', '/api/menu');
+  if (!r.ok) return galat(r);
+  document.getElementById('menu').innerHTML = r.data.map(m =>
+    '<div class="row"><span>' + esc(m.namaMenu) + '<br><small>' + rp(m.harga) +
+    ' · stok ' + m.stok + '</small></span>' +
+    '<input type="number" min="0" value="0" data-id="' + esc(m.idMenu) + '"></div>').join('');
+}
+
+function ambilKeranjang() {
+  return [...document.querySelectorAll('#menu input')]
+    .map(i => ({ idMenu: i.dataset.id, qty: parseInt(i.value) || 0 }))
+    .filter(i => i.qty > 0);
+}
+const badan = k => ({ idPelanggan: idPelanggan(),
+  tokenKartu: document.getElementById('token').value, keranjang: k });
+
+async function hitungTotal() {
+  const k = ambilKeranjang();
+  if (!k.length) return tampilkanPesanError('Pilih minimal satu menu.');
+  const r = await api('POST', '/api/checkout/estimasi', badan(k));
+  if (!r.ok) return galat(r);
+  const baris = r.data.baris.map(b => esc(b.namaMenu) + ' x' + b.qty + ' = ' + rp(b.subtotal) +
+    (b.stokCukup ? '' : ' (stok tidak cukup)')).join('<br>');
+  tampilkanHalamanSukses(baris + '<br><b>Total: ' + rp(r.data.total) + '</b>');
+}
+
+async function klikTombolCheckout() {
+  const k = ambilKeranjang();
+  if (!k.length) return tampilkanPesanError('Pilih minimal satu menu.');
+  const r = await api('POST', '/api/checkout', badan(k));
+  if (!r.ok) return galat(r);
+  tampilkanHalamanSukses('Berhasil! ID pesanan: ' + esc(r.data.idPesanan) +
+    '<br>Total: ' + rp(r.data.total) +
+    '<br><a href="pesanan.html">Lihat daftar pesanan</a>');
+  muatMenu();
+}
+
+muatMenu();
+</script>
+</body>
+</html>

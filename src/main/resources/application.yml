@@ -1,0 +1,17 @@
+
+server:
+  port: ${PORT:8080}
+
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/quickbite}
+    username: ${DB_USERNAME:quickbite}
+    password: ${DB_PASSWORD:rahasia}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
